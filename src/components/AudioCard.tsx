@@ -124,6 +124,7 @@ export default function AudioCard({
         src={`/audio/${audioFile}`}
         className="w-full h-10 rounded-lg"
         controls
+        preload="none"
         onTimeUpdate={handleTimeUpdate}
         onPlay={handlePlay}
         onPause={handlePause}
