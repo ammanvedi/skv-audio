@@ -1,9 +1,10 @@
 import Head from "next/head";
 import { Playfair_Display, Source_Serif_4 } from "next/font/google";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import AudioCard from "@/components/AudioCard";
 import ShareButton from "@/components/ShareButton";
+import SearchBox from "@/components/SearchBox";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -32,9 +33,12 @@ export default function Home() {
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string | null>(null);
   const [currentPlaybackTime, setCurrentPlaybackTime] = useState(0);
   
-  // Parse URL params for auto-play
-  const autoPlayAudio = router.query.audio as string | undefined;
-  const autoPlayTime = router.query.t ? parseFloat(router.query.t as string) : undefined;
+  // State for auto-play (from URL or search results)
+  const [autoPlayTarget, setAutoPlayTarget] = useState<{ audioFile: string; timestamp: number } | null>(null);
+  
+  // Parse URL params for auto-play on initial load
+  const urlAudio = router.query.audio as string | undefined;
+  const urlTime = router.query.t ? parseFloat(router.query.t as string) : undefined;
 
   useEffect(() => {
     const fetchSegments = async () => {
@@ -55,21 +59,31 @@ export default function Home() {
     fetchSegments();
   }, []);
 
-  // Clear URL params after auto-play is triggered
+  // Set auto-play target from URL params
   useEffect(() => {
-    if (autoPlayAudio && !loading && segments.length > 0) {
+    if (urlAudio && !loading && segments.length > 0) {
+      setAutoPlayTarget({ audioFile: urlAudio, timestamp: urlTime || 0 });
       // Clear the URL params without triggering a reload
       const url = new URL(window.location.href);
       url.searchParams.delete("audio");
       url.searchParams.delete("t");
       window.history.replaceState({}, "", url.pathname);
     }
-  }, [autoPlayAudio, loading, segments.length]);
+  }, [urlAudio, urlTime, loading, segments.length]);
+
+  // Clear auto-play target after it's been processed
+  const clearAutoPlayTarget = useCallback(() => {
+    setAutoPlayTarget(null);
+  }, []);
 
   const handleTimeUpdate = (audioFile: string, time: number) => {
     if (audioFile === currentlyPlaying) {
       setCurrentPlaybackTime(time);
     }
+  };
+
+  const handleSearchResultClick = (audioFile: string, timestamp: number) => {
+    setAutoPlayTarget({ audioFile, timestamp });
   };
 
   return (
@@ -99,6 +113,8 @@ export default function Home() {
         </header>
 
         <main className="max-w-5xl mx-auto px-8 py-12">
+          <SearchBox onResultClick={handleSearchResultClick} />
+
           {loading && (
             <div className="flex items-center justify-center py-20">
               <div className="text-stone-400 italic">Loading collection...</div>
@@ -133,7 +149,12 @@ export default function Home() {
                     currentlyPlaying={currentlyPlaying}
                     onPlay={setCurrentlyPlaying}
                     onTimeUpdate={handleTimeUpdate}
-                    autoPlayAt={segment.audioFile === autoPlayAudio ? autoPlayTime : undefined}
+                    autoPlayAt={
+                      autoPlayTarget?.audioFile === segment.audioFile 
+                        ? autoPlayTarget.timestamp 
+                        : undefined
+                    }
+                    onAutoPlayComplete={clearAutoPlayTarget}
                   />
                 ))}
               </div>

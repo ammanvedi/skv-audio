@@ -10,6 +10,7 @@ interface AudioCardProps {
   onPlay: (audioFile: string) => void;
   onTimeUpdate?: (audioFile: string, time: number) => void;
   autoPlayAt?: number;
+  onAutoPlayComplete?: () => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -27,6 +28,7 @@ export default function AudioCard({
   onPlay,
   onTimeUpdate,
   autoPlayAt,
+  onAutoPlayComplete,
 }: AudioCardProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const cardRef = useRef<HTMLElement>(null);
@@ -41,7 +43,14 @@ export default function AudioCard({
     }
   }, [currentlyPlaying, audioFile]);
 
-  // Handle auto-play from shared link
+  // Reset hasAutoPlayed when autoPlayAt changes (new search result clicked)
+  useEffect(() => {
+    if (autoPlayAt !== undefined) {
+      setHasAutoPlayed(false);
+    }
+  }, [autoPlayAt]);
+
+  // Handle auto-play from shared link or search result
   useEffect(() => {
     if (autoPlayAt !== undefined && !hasAutoPlayed && audioRef.current && cardRef.current) {
       setHasAutoPlayed(true);
@@ -58,9 +67,11 @@ export default function AudioCard({
             console.log("Auto-play blocked:", err);
           });
         }
+        // Notify parent that auto-play has been handled
+        onAutoPlayComplete?.();
       }, 500);
     }
-  }, [autoPlayAt, hasAutoPlayed]);
+  }, [autoPlayAt, hasAutoPlayed, onAutoPlayComplete]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
